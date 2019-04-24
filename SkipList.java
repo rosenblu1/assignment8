@@ -102,12 +102,11 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
 
     // make newnode
     int h = randomHeight();
-    // System.out.println("The height is " + h);
+     System.out.println("The height is " + h);
     SLNode<K, V> newnode = new SLNode<K, V>(key, value, h);
 
     // if the list is empty
     if (this.size == 0) {
-      // System.out.println("the list is empty");
       if (h > this.height) {
         // update front
         for (int j = 0; j < h; j++) {
@@ -120,8 +119,6 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
         front.set(i, newnode); // make front point to newnode for h levels
         newnode.next.add(null); // fill 'next' field of newnode
       }
-
-      System.out.println(front.get(h - 1).value);
 
       this.size++;
       return value;
@@ -418,6 +415,7 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
         }
         SLNode<K, V> temp = this.next;
         this.next = this.next.next.get(0);
+        System.out.println("getting here");
         return temp;
       } // next();
     }; // new Iterator
