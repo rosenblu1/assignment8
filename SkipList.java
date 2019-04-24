@@ -1,5 +1,6 @@
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Random;
@@ -92,61 +93,56 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
 
   @Override
   public V set(K key, V value) {
+
     if (key == null) {
       throw new NullPointerException("null key");
     } // if
 
     SLNode<K, V> node = front.get(front.size() - 1);
 
-    // if the list is empty
-    if (node == null) {
-      System.out.println("the node is null");
-      int h = randomHeight();
-      System.out.println("The height is " + h);
-      SLNode<K, V> newnode = new SLNode<K, V>(key, value, h);
+    //make newnode
+    int h = randomHeight();
+    System.out.println("The height is " + h);
+    SLNode<K, V> newnode = new SLNode<K, V>(key, value, h);
 
+    // if the list is empty
+    if (this.size == 0) {
+      System.out.println("the list is empty");
+
+     
       if (h > this.height) {
-      // update front
-      for (int j = 0; j < h - this.height - 1; j++) {
-        front.add(null);
+        // update front
+        for (int j = 0; j < h; j++) {
+          front.add(newnode);
+        }
+        this.height = h;
+
+      } // if h > this.height
+     
+
+      //making front point to newnode for h levels
+      for (int i = 0; i < h; i++) {
+        front.set(i, newnode);
       }
-      front.add(newnode);
-      this.height = h;
-      } else {
-        front.set(h-1, newnode);
-      } // else
       
       // fill 'next' field of newnode
-      for (int k = 0; k < this.height; k++) {
+      for (int k = 0; k < h; k++) {
         newnode.next.add(null);
       }
-
-      // "shuffling" pointers
-      SLNode<K, V> tmp = front.get(h);
       
-      newnode.next.set(h, tmp);
-      front.set(h, newnode);
-
+      System.out.println(front.get(h-1).value);
+      
       this.size++;
       return value;
     } // if the list is empty
-
-    for (int level = front.size() - 1; level >= 0; level--) {
-
-      // invariant: node.key <= key
-      while (node.next.get(level) != null
-          && comparator.compare(node.next.get(level).key, key) < 0) {
-        node = node.next.get(level);
-      } // while
-    } // for
-
+    else {
+      
+    node = search(key);
+    
     // if we don't have to make and insert a new node
     if (node.key == key) {
       node.value = value;
     } else {
-
-      int h = randomHeight();
-      SLNode<K, V> newnode = new SLNode<K, V>(key, value, h);
 
       if (h > this.height) {
         // update front
@@ -173,7 +169,7 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
             && comparator.compare(update.next.get(level).key, key) < 0) {
           update = update.next.get(level);
         } // while
-        //update new node's pointers
+        // update new node's pointers
         if (h >= level) {
           SLNode<K, V> tmp = update.next.get(level);
           update.next.set(level, newnode);
@@ -184,6 +180,7 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
     } // if we have to make and insert a newnode
     this.size++;
     return value;
+    } // if list is not empty
   } // set(K,V)
 
   /**
@@ -194,18 +191,15 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
    */
   @Override
   public V get(K key) {
-    SLNode<K, V> node = front.get(front.size() - 1);
-    if (key == null || node == null) {
-      throw new NullPointerException();
-    } // if
-    
-    for (int level = front.size() - 1; level >= 0; level--) {
-      // invariant: node.key <= key
-      while (node.next.get(level) != null
-          && comparator.compare(node.next.get(level).key, key) < 0) {
-        node = node.next.get(level);
-      } // while
-    } // for
+   
+    if (key == null) {
+      throw new NullPointerException("key is null");
+    } else if (size == 0) {
+      throw new IndexOutOfBoundsException("list is empty");
+    }
+
+   SLNode<K,V> node = search(key);
+   
     if (comparator.compare(node.key, key) == 0) {
       return node.value;
     } else {
@@ -222,18 +216,9 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
   public boolean containsKey(K key) {
     if (key == null) {
       throw new NullPointerException("null key");
-    } // if
-    SLNode<K, V> node = front.get(front.size() - 1);
-    if (node == null) {
-      return false;
-    }
-    for (int level = front.size() - 1; level >= 0; level--) {
-      // invariant: node.key <= key
-      while (node.next.get(level) != null
-          && comparator.compare(node.next.get(level).key, key) < 0) {
-        node = node.next.get(level);
-      } // while
-    } // for
+    } else if (this.size == 0) { return false; }
+    
+    SLNode<K,V> node = search(key);
     if (comparator.compare(node.key, key) == 0) {
       return true;
     } else {
@@ -353,6 +338,17 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
     pen.println();
 
   } // dump(PrintWriter)
+
+  /**
+   * Print some links (for dump).
+   */
+  void printLinks(PrintWriter pen, String leading) {
+    pen.print(leading);
+    for (int level = 0; level < this.height; level++) {
+      pen.print(" |");
+    } // for
+    pen.println();
+  } // printLinks
   // +---------+-----------------------------------------------------
   // | Helpers |
   // +---------+
@@ -367,7 +363,30 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
     }
     return result;
   } // randomHeight()
-
+  
+  
+  /**
+   * returns the node right in front of where searchKey is
+   */
+  SLNode<K,V> search(K key){
+  int lev = this.height - 1;
+  SLNode<K, V> node = front.get(lev);
+ 
+ //get down to the first actual value of front
+  while (node == null) {
+    node = front.get(lev);
+    lev--;
+  }
+  
+  //large 'for' loop that moves down the levels searching (vertical)
+  for (int level = lev + 1; level >= 0; level--) {
+    // invariant: node.key <= key (horizontal)
+    while (comparator.compare(node.key, key) < 0 && node.next.get(level) != null) {
+      node = node.next.get(level);
+    } // while
+  } // for
+  return node;
+} // search
   /**
    * Get an iterator for all of the nodes. (Useful for implementing the other iterators.)
    */
