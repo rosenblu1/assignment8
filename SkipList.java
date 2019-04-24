@@ -100,86 +100,68 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
 
     SLNode<K, V> node = front.get(front.size() - 1);
 
-    //make newnode
+    // make newnode
     int h = randomHeight();
-    System.out.println("The height is " + h);
+    // System.out.println("The height is " + h);
     SLNode<K, V> newnode = new SLNode<K, V>(key, value, h);
 
     // if the list is empty
     if (this.size == 0) {
-      System.out.println("the list is empty");
-
-     
+      // System.out.println("the list is empty");
       if (h > this.height) {
         // update front
         for (int j = 0; j < h; j++) {
           front.add(newnode);
         }
         this.height = h;
-
       } // if h > this.height
-     
 
-      //making front point to newnode for h levels
       for (int i = 0; i < h; i++) {
-        front.set(i, newnode);
+        front.set(i, newnode); // make front point to newnode for h levels
+        newnode.next.add(null); // fill 'next' field of newnode
       }
-      
-      // fill 'next' field of newnode
-      for (int k = 0; k < h; k++) {
-        newnode.next.add(null);
-      }
-      
-      System.out.println(front.get(h-1).value);
-      
+
+      System.out.println(front.get(h - 1).value);
+
       this.size++;
       return value;
     } // if the list is empty
     else {
-      
-    node = search(key);
-    
-    // if we don't have to make and insert a new node
-    if (node.key == key) {
-      node.value = value;
-    } else {
 
-      if (h > this.height) {
-        // update front
-        for (int j = 0; j < h - this.height; j++) {
-          front.add(null);
-        }
-        front.add(newnode);
-        // traverse lowest level of list
-        SLNode<K, V> cur = front.get(0);
-        for (int i = 0; i < this.size; i++) {
-          for (int j = 0; j <= h - this.height; j++) {
-            cur.next.add(null);
+      node = search(key);
+
+      // if key is already present
+      if (node.key == key) {
+        node.value = value;
+        return value;
+      } else {
+
+        if (h > this.height) {
+          // update front
+          for (int j = 0; j < h - this.height; j++) {
+            front.add(newnode);
           }
-          cur = cur.next.get(0);
-        } // expanding all the nodes' ArrayList 'next'
-        this.height = h;
-      } // if random height is larger than this.height
+          this.height = h;
+        } // if (h > this.height)
 
-      // update pointers to new node
-      SLNode<K, V> update = front.get(front.size() - 2);
-      for (int level = front.size() - 2; level >= 0; level--) {
-        // invariant: node.key <= key
-        while (update.next.get(level) != null
-            && comparator.compare(update.next.get(level).key, key) < 0) {
-          update = update.next.get(level);
-        } // while
-        // update new node's pointers
-        if (h >= level) {
-          SLNode<K, V> tmp = update.next.get(level);
-          update.next.set(level, newnode);
-          newnode.next.set(level, tmp);
-        } // if (h >= level)
-      } // for
+        ArrayList<SLNode<K, V>> nodes = this.getNodes(key);
 
-    } // if we have to make and insert a newnode
-    this.size++;
-    return value;
+        int topLevel = this.topLevel();
+
+        for (int index = 0; index < nodes.size(); index++) {
+          int lev = topLevel - index;
+          if (h > lev) {
+            newnode.setNext(lev, nodes.get(index).next(lev));// make newnode point to next element
+            nodes.get(index).setNext(lev, newnode);// correct pointers to newnode
+          }
+        } // for
+
+        // fix lowest level
+        newnode.setNext(0, nodes.get(nodes.size() - 1).next(0));
+        nodes.get(nodes.size() - 1).next(0).setNext(0, newnode);
+      } // if we have to make and insert a newnode
+      this.size++;
+      return value;
     } // if list is not empty
   } // set(K,V)
 
@@ -191,15 +173,15 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
    */
   @Override
   public V get(K key) {
-   
+
     if (key == null) {
       throw new NullPointerException("key is null");
     } else if (size == 0) {
       throw new IndexOutOfBoundsException("list is empty");
     }
 
-   SLNode<K,V> node = search(key);
-   
+    SLNode<K, V> node = search(key);
+
     if (comparator.compare(node.key, key) == 0) {
       return node.value;
     } else {
@@ -216,9 +198,11 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
   public boolean containsKey(K key) {
     if (key == null) {
       throw new NullPointerException("null key");
-    } else if (this.size == 0) { return false; }
-    
-    SLNode<K,V> node = search(key);
+    } else if (this.size == 0) {
+      return false;
+    }
+
+    SLNode<K, V> node = search(key);
     if (comparator.compare(node.key, key) == 0) {
       return true;
     } else {
@@ -363,30 +347,54 @@ public class SkipList<K, V> implements SimpleMap<K, V> {
     }
     return result;
   } // randomHeight()
-  
-  
+
+  int topLevel() {
+    int lev = this.height - 1;
+    SLNode<K, V> node = front.get(lev);
+
+    // get down to the first actual value of front
+    while (node == null) {
+      node = front.get(lev);
+      lev--;
+    }
+    return lev + 1;
+  }
+
+  ArrayList<SLNode<K, V>> getNodes(K key) {
+    ArrayList<SLNode<K, V>> path = new ArrayList<SLNode<K, V>>(1);
+
+    int lev = this.topLevel();
+    SLNode<K, V> node = front.get(lev);
+
+    // large 'for' loop that moves down the levels searching (vertical)
+    for (int level = lev; level >= 0; level--) {
+      // invariant: node.key <= key (horizontal)
+      while (comparator.compare(node.key, key) < 0 && node.next.get(level) != null) {
+        node = node.next.get(level);
+      } // while
+      path.add(node);
+    } // for
+    return path;
+  } // getNodes(K)
+
   /**
    * returns the node right in front of where searchKey is
    */
-  SLNode<K,V> search(K key){
-  int lev = this.height - 1;
-  SLNode<K, V> node = front.get(lev);
- 
- //get down to the first actual value of front
-  while (node == null) {
-    node = front.get(lev);
-    lev--;
-  }
-  
-  //large 'for' loop that moves down the levels searching (vertical)
-  for (int level = lev + 1; level >= 0; level--) {
-    // invariant: node.key <= key (horizontal)
-    while (comparator.compare(node.key, key) < 0 && node.next.get(level) != null) {
-      node = node.next.get(level);
-    } // while
-  } // for
-  return node;
-} // search
+  SLNode<K, V> search(K key) {
+
+    int lev = this.topLevel();
+    SLNode<K, V> node = front.get(lev);
+
+    // large 'for' loop that moves down the levels searching (vertical)
+    for (int level = lev; level >= 0; level--) {
+      // invariant: node.key <= key (horizontal)
+      while (comparator.compare(node.key, key) < 0 && node.next.get(level) != null) {
+        node = node.next.get(level);
+      } // while
+    } // for
+    return node;
+  } // search
+
   /**
    * Get an iterator for all of the nodes. (Useful for implementing the other iterators.)
    */
@@ -465,5 +473,19 @@ class SLNode<K, V> {
   // +---------+-----------------------------------------------------
   // | Methods |
   // +---------+
+  /**
+   * Get the next node at the specified level.
+   */
+  public SLNode<K, V> next(int level) {
+    return this.next.get(level);
+  } // next
+
+  /**
+   * Set the next node at the specified level.
+   */
+  public void setNext(int level, SLNode<K, V> next) {
+    this.next.set(level, next);
+  } // setNext(int, SLNode<K,V>)
+
 
 } // SLNode<K,V>
